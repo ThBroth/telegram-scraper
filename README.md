@@ -76,7 +76,7 @@ pip install -r requirements.txt
 
 3. Run the script:
 ```bash
-python telegram-scraper.py
+python main.py
 ```
 
 4. On first run, you'll be prompted to enter:
