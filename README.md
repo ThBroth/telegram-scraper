@@ -41,7 +41,6 @@ Contents of `requirements.txt`:
 ```
 telethon
 aiohttp
-sqlite3
 asyncio
 ```
 
@@ -124,6 +123,23 @@ The script provides an interactive menu with the following options:
   - Lists all channels joined by account  
 - **[Q]** Quit
 
+The same options are available via arguments to the script.
+
+**Usage:** main.py [-h] [--add id] [--remove id] [--scrape] [--toggle] [--continuous] [--export] [--view] [--list]
+
+| Option                 | Short    | Description                        |
+|------------------------|----------|------------------------------------|
+| `--help`               | `-h`     | Show help message and exit        |
+| `--add id`             | `-a id`  | Add a new channel by ID           |
+| `--remove id`          | `-r id`  | Remove a channel by ID            |
+| `--scrape`             | `-s`     | Scrape all channels               |
+| `--toggle`             | `-t`     | Toggle media scraping on/off      |
+| `--continuous`         | `-c`     | Enable continuous scraping        |
+| `--export`             | `-e`     | Export scraped data               |
+| `--view`               | `-v`     | View saved channels               |
+| `--list`               | `-l`     | List all account channels         |
+
+
 ### Channel IDs 📢
 
 You can use either:
@@ -156,17 +172,17 @@ Data is stored in SQLite databases, one per channel:
 ### Media Storage 📁
 
 Media files are stored in:
-- Location: `./channelname/media/`
+- Location: `./data/channelname/media/`
 - Files are named using message ID or original filename
 
 ### Exported Data 📊
 
 Data can be exported in two formats:
-1. **CSV**: `./channelname/channelname.csv`
+1. **CSV**: `./data/channelname/channelname.csv`
    - Human-readable spreadsheet format
    - Easy to import into Excel/Google Sheets
 
-2. **JSON**: `./channelname/channelname.json`
+2. **JSON**: `./data/channelname/channelname.json`
    - Structured data format
    - Ideal for programmatic processing
 
