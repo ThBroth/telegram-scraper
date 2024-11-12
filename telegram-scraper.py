@@ -9,6 +9,8 @@ from telethon.errors import FloodWaitError, RPCError
 import aiohttp
 import sys
 
+import export
+
 def display_ascii_art():
     WHITE = "\033[97m"
     RESET = "\033[0m"
@@ -23,8 +25,6 @@ ___________________  _________
     """
     
     print(WHITE + art + RESET)
-
-display_ascii_art()
 
 STATE_FILE = 'state.json'
 
@@ -55,7 +55,7 @@ if not state['api_id'] or not state['api_hash'] or not state['phone']:
 client = TelegramClient('session', state['api_id'], state['api_hash'])
 
 def save_message_to_db(channel, message, sender):
-    channel_dir = os.path.join(os.getcwd(), channel)
+    channel_dir = os.path.join(os.getcwd(), 'data/' + channel)
     os.makedirs(channel_dir, exist_ok=True)
 
     db_file = os.path.join(channel_dir, f'{channel}.db')
@@ -84,7 +84,7 @@ async def download_media(channel, message):
     if not message.media or not state['scrape_media']:
         return None
 
-    channel_dir = os.path.join(os.getcwd(), channel)
+    channel_dir = os.path.join(os.getcwd(), 'data/' + channel)
     media_folder = os.path.join(channel_dir, 'media')
     os.makedirs(media_folder, exist_ok=True)    
     media_file_name = None
@@ -119,38 +119,7 @@ async def download_media(channel, message):
             await asyncio.sleep(2 ** retries)
     return media_path
 
-async def rescrape_media(channel):
-    channel_dir = os.path.join(os.getcwd(), channel)
-    db_file = os.path.join(channel_dir, f'{channel}.db')
-    conn = sqlite3.connect(db_file)
-    c = conn.cursor()
-    c.execute('SELECT message_id FROM messages WHERE media_type IS NOT NULL AND media_path IS NULL')
-    rows = c.fetchall()
-    conn.close()
 
-    total_messages = len(rows)
-    if total_messages == 0:
-        print(f"No media files to reprocess for channel {channel}.")
-        return
-
-    for index, (message_id,) in enumerate(rows):
-        try:
-            entity = await client.get_entity(PeerChannel(int(channel)))
-            message = await client.get_messages(entity, ids=message_id)
-            media_path = await download_media(channel, message)
-            if media_path:
-                conn = sqlite3.connect(db_file)
-                c = conn.cursor()
-                c.execute('''UPDATE messages SET media_path = ? WHERE message_id = ?''', (media_path, message_id))
-                conn.commit()
-                conn.close()
-            
-            progress = (index + 1) / total_messages * 100
-            sys.stdout.write(f"\rReprocessing media for channel {channel}: {progress:.2f}% complete")
-            sys.stdout.flush()
-        except Exception as e:
-            print(f"Error reprocessing message {message_id}: {e}")
-    print()
 
 async def scrape_channel(channel, offset_id):
     try:
@@ -180,7 +149,7 @@ async def scrape_channel(channel, offset_id):
                 if state['scrape_media'] and message.media:
                     media_path = await download_media(channel, message)
                     if media_path:
-                        conn = sqlite3.connect(os.path.join(channel, f'{channel}.db'))
+                        conn = sqlite3.connect(os.path.join('data/' + channel, f'{channel}.db'))
                         c = conn.cursor()
                         c.execute('''UPDATE messages SET media_path = ? WHERE message_id = ?''', (media_path, message.id))
                         conn.commit()
@@ -190,7 +159,7 @@ async def scrape_channel(channel, offset_id):
                 processed_messages += 1
 
                 progress = (processed_messages / total_messages) * 100
-                sys.stdout.write(f"\rScraping channel: {channel} - Progress: {progress:.2f}%")
+                sys.stdout.write(f"\rScraping channel: {channel} - Progress: {progress:.2f}% ")
                 sys.stdout.flush()
 
                 state['channels'][channel] = last_message_id
@@ -216,44 +185,13 @@ async def continuous_scraping():
         print("Continuous scraping stopped.")
         continuous_scraping_active = False
 
-async def export_data():
-    for channel in state['channels']:
-        export_to_csv(channel)
-        export_to_json(channel)
-
-def export_to_csv(channel):
-    db_file = os.path.join(channel, f'{channel}.db')
-    csv_file = os.path.join(channel, f'{channel}.csv')
-    conn = sqlite3.connect(db_file)
-    c = conn.cursor()
-    c.execute('SELECT * FROM messages')
-    rows = c.fetchall()
-    conn.close()
-
-    with open(csv_file, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        writer.writerow([description[0] for description in c.description])
-        writer.writerows(rows)
-
-def export_to_json(channel):
-    db_file = os.path.join(channel, f'{channel}.db')
-    json_file = os.path.join(channel, f'{channel}.json')
-    conn = sqlite3.connect(db_file)
-    c = conn.cursor()
-    c.execute('SELECT * FROM messages')
-    rows = c.fetchall()
-    conn.close()
-
-    data = [dict(zip([description[0] for description in c.description], row)) for row in rows]
-    with open(json_file, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-
 async def view_channels():
     if not state['channels']:
         print("No channels to view.")
         return
     
     print("\nCurrent channels:")
+    # print(json.dumps(state['channels'], indent=4))
     for channel, last_id in state['channels'].items():
         print(f"Channel ID: {channel}, Last Message ID: {last_id}")
 
@@ -265,7 +203,6 @@ async def list_Channels():
                 print(f"* {dialog.title} (id: {dialog.id})")
     except Exception as e:
         print(f"Error processing: {e}")
-
 
 async def manage_channels():
     while True:
@@ -317,7 +254,7 @@ async def manage_channels():
                     print("\nStopping continuous scraping...")
                     await task
             case 'e':
-                await export_data()
+                await export.export_data(state)
             case 'v':
                 await view_channels()
             case 'q':
@@ -335,6 +272,7 @@ async def main():
         await manage_channels()
 
 if __name__ == '__main__':
+    display_ascii_art()
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

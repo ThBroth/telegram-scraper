@@ -120,6 +120,8 @@ The script provides an interactive menu with the following options:
   - Export to JSON and CSV formats
 - **[V]** View channels
   - List all configured channels
+- **[L]** List account channels
+  - Lists all channels joined by account  
 - **[Q]** Quit
 
 ### Channel IDs 📢
